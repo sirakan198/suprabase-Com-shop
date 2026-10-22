@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ร้านขายคอมพิวเตอร์</title>
+<style>
+  :root {
+    --bg: #0f1420; --card: #182033; --card-border: #2a3552;
+    --text: #e8edf7; --muted: #8f9bb8; --accent: #4da3ff;
+    --ok: #4fc98a; --warn: #f0b04a; --bad: #e2676b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Sarabun", "Noto Sans Thai", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { text-align: center; padding: 36px 16px 12px; }
+  header h1 { margin: 0 0 8px; font-size: 2rem; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); }
+  .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+  .toolbar { max-width: 1100px; margin: 0 auto; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; }
+  .toolbar input { background: var(--card); border: 1px solid var(--card-border); color: var(--text); border-radius: 999px; padding: 8px 16px; font: inherit; min-width: 220px; }
+  .chip { background: var(--card); border: 1px solid var(--card-border); color: var(--muted); border-radius: 999px; padding: 6px 14px; font: inherit; cursor: pointer; margin: 2px; }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #07111f; font-weight: 600; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: background 0.4s, border-color 0.4s; }
+  .card img { width: 100%; height: 160px; object-fit: cover; background: #0b101b; display: block; }
+  .card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .card .cat { font-size: 0.72rem; color: var(--accent); letter-spacing: 0.5px; }
+  .card .name { font-size: 1rem; font-weight: 600; }
+  .card .desc { font-size: 0.85rem; color: var(--muted); }
+  .card .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; padding-top: 8px; }
+  .card .price { font-size: 1.4rem; font-weight: 700; }
+  .card .price.na { font-size: 0.95rem; color: var(--muted); font-weight: 400; }
+  .badge { font-size: 0.75rem; padding: 3px 10px; border-radius: 999px; }
+  .badge.ok { background: rgba(79,201,138,.15); color: var(--ok); }
+  .badge.low { background: rgba(240,176,74,.15); color: var(--warn); }
+  .badge.out { background: rgba(226,103,107,.15); color: var(--bad); }
+  .buy { margin-top: 10px; width: 100%; padding: 9px; border: 0; border-radius: 10px; background: var(--accent); color: #07111f; font: inherit; font-weight: 700; cursor: pointer; }
+  .buy:hover:not(:disabled) { filter: brightness(1.1); }
+  .buy:disabled { background: #2a3552; color: var(--muted); cursor: not-allowed; }
+  .card.soldout img, .card.soldout .name, .card.soldout .desc { opacity: 0.55; }
+  .card.soldout .price { text-decoration: line-through; opacity: 0.55; }
+  .card.flash { background: #1f3358; border-color: var(--accent); }
+  .card.enter { animation: pop 0.5s ease; }
+  @keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty, .error { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 0; }
+  .error { color: var(--bad); }
+
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--card-border); border-radius: 16px; padding: 24px; width: min(92vw, 400px); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0 0 4px; font-size: 1.2rem; }
+  dialog .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
+  dialog label { display: block; font-size: 0.85rem; color: var(--muted); margin: 12px 0 4px; }
+  dialog input { width: 100%; background: var(--bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 10px; padding: 9px 12px; font: inherit; }
+  dialog .total { margin-top: 16px; font-size: 1.1rem; display: flex; justify-content: space-between; }
+  dialog .total b { color: var(--accent); }
+  dialog .msg { color: var(--bad); font-size: 0.9rem; min-height: 1.2em; margin-top: 8px; }
+  dialog .actions { display: flex; gap: 10px; margin-top: 12px; }
+  dialog .actions button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--card-border); font: inherit; cursor: pointer; background: transparent; color: var(--text); }
+  dialog .actions button.primary { background: var(--accent); border-color: var(--accent); color: #07111f; font-weight: 700; }
+  dialog .actions button:disabled { opacity: 0.6; cursor: wait; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: var(--ok); color: #05150c; padding: 12px 20px; border-radius: 12px; font-weight: 600; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 10; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🖥️ ร้านขายคอมพิวเตอร์</h1>
+  <div class="status"><span id="dot" class="dot"></span><span id="statusText">กำลังเชื่อมต่อ...</span></div>
+</header>
+
+<div class="toolbar">
+  <input id="search" type="search" placeholder="ค้นหาสินค้า...">
+  <span id="chips"></span>
+</div>
+
+<main id="list"></main>
+
+<dialog id="buyDialog">
+  <form id="buyForm">
+    <h2 id="buyTitle">สั่งซื้อสินค้า</h2>
+    <div class="sub" id="buySub"></div>
+    <label for="buyName">ชื่อผู้สั่งซื้อ</label>
+    <input id="buyName" required maxlength="100" placeholder="เช่น สมชาย ใจดี" autocomplete="name">
+    <label for="buyQty">จำนวน</label>
+    <input id="buyQty" type="number" min="1" value="1" required>
+    <div class="total"><span>ยอดรวม</span><b id="buyTotal">฿0</b></div>
+    <div class="msg" id="buyMsg"></div>
+    <div class="actions">
+      <button type="button" id="buyCancel">ยกเลิก</button>
+      <button type="submit" class="primary" id="buySubmit">ยืนยันสั่งซื้อ</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ====== ค่าของโปรเจกต์ (ใช้ Publishable key จาก Settings → API) ======
+  const SUPABASE_URL = "https://jyuyrawntpuhyvubkiso.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_sBorsdkwbfk8H-r3Etpv6w_CU0yqU07";
+  // ห้ามใส่ Secret key (sb_secret_...) / service_role key เด็ดขาด
+  // ====================================================================
+
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const listEl = document.getElementById("list");
+  const chipsEl = document.getElementById("chips");
+  const searchEl = document.getElementById("search");
+  const dotEl = document.getElementById("dot");
+  const statusEl = document.getElementById("statusText");
+
+  const products = new Map();   // products.id -> row
+  const prices = new Map();     // prices.id (หรือ product_id) -> row
+  let category = "ทั้งหมด";
+  let query = "";
+  let flashProductId = null;
+  let flashType = null;
+
+  const CATS = [
+    [/liquid|cooler/i, "ชุดระบายความร้อน"],
+    [/case/i, "เคส"],
+    [/power supply|psu/i, "พาวเวอร์ซัพพลาย"],
+    [/^vga|graphics/i, "การ์ดจอ"],
+    [/ssd|hdd/i, "ที่เก็บข้อมูล"],
+    [/^ram/i, "RAM"],
+    [/mainboard/i, "เมนบอร์ด"],
+    [/^cpu/i, "CPU"],
+  ];
+  const catOf = name => (CATS.find(([re]) => re.test(name)) || [, "อื่น ๆ"])[1];
+  const baht = n => "฿" + Number(n).toLocaleString("th-TH");
+
+  function priceByProduct() {
+    const m = new Map();
+    for (const r of prices.values()) m.set(r.product_id, r.selling_price);
+    return m;
+  }
+
+  function sorted() {
+    return [...products.values()].sort((a, b) =>
+      new Date(a.created_at || 0) - new Date(b.created_at || 0) || a.id - b.id);
+  }
+
+  function renderChips() {
+    const cats = ["ทั้งหมด", ...new Set(sorted().map(p => catOf(p.name)))];
+    if (!cats.includes(category)) category = "ทั้งหมด";
+    chipsEl.replaceChildren();
+    for (const c of cats) {
+      const b = document.createElement("button");
+      b.className = "chip" + (c === category ? " active" : "");
+      b.textContent = c;
+      b.onclick = () => { category = c; render(); };
+      chipsEl.appendChild(b);
+    }
+  }
+
+  function stockBadge(stock) {
+    const b = document.createElement("span");
+    if (stock <= 0)      { b.className = "badge out"; b.textContent = "สินค้าหมด"; }
+    else if (stock <= 3) { b.className = "badge low"; b.textContent = "เหลือ " + stock + " ชิ้น"; }
+    else                 { b.className = "badge ok";  b.textContent = "มีสินค้า (" + stock + ")"; }
+    return b;
+  }
+
+  function render() {
+    renderChips();
+    listEl.replaceChildren();
+
+    const priceMap = priceByProduct();
+    const q = query.trim().toLowerCase();
+    const shown = sorted().filter(p =>
+      (category === "ทั้งหมด" || catOf(p.name) === category) &&
+      (!q || (p.name + " " + (p.description || "")).toLowerCase().includes(q)));
+
+    if (shown.length === 0) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "ไม่พบสินค้า";
+      listEl.appendChild(e);
+      return;
+    }
+
+    for (const p of shown) {
+      const stock = Number(p.stock) || 0;
+      const sp = priceMap.get(p.id);
+      const soldOut = stock <= 0;
+
+      const card = document.createElement("div");
+      card.className = "card" + (soldOut ? " soldout" : "");
+
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.alt = p.name;
+      if (p.image_url) img.src = p.image_url;
+      img.onerror = () => { img.style.visibility = "hidden"; };
+
+      const body = document.createElement("div"); body.className = "body";
+      const cat = document.createElement("div"); cat.className = "cat"; cat.textContent = catOf(p.name);
+      const name = document.createElement("div"); name.className = "name"; name.textContent = p.name;
+      const desc = document.createElement("div"); desc.className = "desc"; desc.textContent = p.description || "";
+
+      const bottom = document.createElement("div"); bottom.className = "bottom";
+      const price = document.createElement("div"); price.className = "price";
+      if (sp == null) { price.classList.add("na"); price.textContent = "สอบถามราคา"; }
+      else price.textContent = baht(sp);
+      bottom.append(price, stockBadge(stock));
+
+      const buy = document.createElement("button");
+      buy.className = "buy";
+      buy.textContent = soldOut ? "สินค้าหมด" : "🛒 สั่งซื้อ";
+      buy.disabled = soldOut || sp == null;
+      buy.onclick = () => openBuy(p.id);
+
+      body.append(cat, name, desc, bottom, buy);
+      card.append(img, body);
+
+      if (p.id === flashProductId) {
+        card.classList.add(flashType === "INSERT" ? "enter" : "flash");
+        setTimeout(() => card.classList.remove("flash"), 1500);
+      }
+      listEl.appendChild(card);
+    }
+    flashProductId = null;
+  }
+
+  // ---------- สั่งซื้อ ----------
+  const dlg = document.getElementById("buyDialog");
+  const buyForm = document.getElementById("buyForm");
+  const buyTitle = document.getElementById("buyTitle");
+  const buySub = document.getElementById("buySub");
+  const buyName = document.getElementById("buyName");
+  const buyQty = document.getElementById("buyQty");
+  const buyTotal = document.getElementById("buyTotal");
+  const buyMsg = document.getElementById("buyMsg");
+  const buySubmit = document.getElementById("buySubmit");
+  const toastEl = document.getElementById("toast");
+  let buyingId = null;
+
+  function currentProduct() {
+    const p = products.get(buyingId);
+    if (!p) return null;
+    return { p, price: priceByProduct().get(p.id), stock: Number(p.stock) || 0 };
+  }
+
+  function updateTotal() {
+    const c = currentProduct();
+    if (!c) return;
+    const qty = Math.max(1, parseInt(buyQty.value, 10) || 1);
+    buyTotal.textContent = baht((Number(c.price) || 0) * qty);
+  }
+
+  function openBuy(id) {
+    buyingId = id;
+    const c = currentProduct();
+    if (!c || c.stock <= 0 || c.price == null) return;
+    buyTitle.textContent = c.p.name;
+    buySub.textContent = baht(c.price) + " / ชิ้น  ·  เหลือ " + c.stock + " ชิ้น";
+    buyQty.max = Math.min(c.stock, 20);
+    buyQty.value = 1;
+    buyMsg.textContent = "";
+    buySubmit.disabled = false;
+    buySubmit.textContent = "ยืนยันสั่งซื้อ";
+    updateTotal();
+    dlg.showModal();
+  }
+
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 3000);
+  }
+
+  buyQty.addEventListener("input", updateTotal);
+  document.getElementById("buyCancel").onclick = () => dlg.close();
+
+  buyForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const c = currentProduct();
+    if (!c) { buyMsg.textContent = "ไม่พบสินค้านี้แล้ว"; return; }
+
+    const qty = parseInt(buyQty.value, 10);
+    buySubmit.disabled = true;
+    buySubmit.textContent = "กำลังสั่งซื้อ...";
+    buyMsg.textContent = "";
+
+    const { data, error } = await db.rpc("place_order", {
+      p_product_id: c.p.id,
+      p_quantity: qty,
+      p_customer_name: buyName.value,
+    });
+
+    if (error) {
+      buyMsg.textContent = error.message;
+      buySubmit.disabled = false;
+      buySubmit.textContent = "ยืนยันสั่งซื้อ";
+      return;
+    }
+    dlg.close();
+    toast("สั่งซื้อสำเร็จ! เลขออเดอร์ #" + data);
+    // สต็อกบนหน้าเว็บจะลดเองผ่าน realtime
+  });
+
+  // ---------- โหลดข้อมูลและ realtime ----------
+  function setStatus(live, text) {
+    dotEl.classList.toggle("live", live);
+    statusEl.textContent = text;
+  }
+
+  const priceKey = r => r.id ?? r.product_id;
+
+  async function loadInitial() {
+    // ดึงเฉพาะคอลัมน์ที่ต้องใช้ (ไม่ดึง cost_price)
+    const [pr, pc] = await Promise.all([
+      db.from("products").select("*"),
+      db.from("prices").select("id, product_id, selling_price"),
+    ]);
+    const err = pr.error || pc.error;
+    if (err) {
+      listEl.replaceChildren();
+      const e = document.createElement("div");
+      e.className = "error";
+      e.textContent = "โหลดสินค้าไม่สำเร็จ: " + err.message;
+      listEl.appendChild(e);
+      return;
+    }
+    products.clear(); prices.clear();
+    pr.data.forEach(r => products.set(r.id, r));
+    pc.data.forEach(r => prices.set(priceKey(r), r));
+    render();
+  }
+
+  function subscribe() {
+    db.channel("shop-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, payload => {
+        if (payload.eventType === "DELETE") {
+          products.delete(payload.old.id);
+        } else {
+          products.set(payload.new.id, payload.new);
+          flashProductId = payload.new.id;
+        }
+        flashType = payload.eventType;
+        render();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "prices" }, payload => {
+        if (payload.eventType === "DELETE") {
+          prices.delete(priceKey(payload.old));
+        } else {
+          prices.set(priceKey(payload.new), payload.new);
+          flashProductId = payload.new.product_id;
+        }
+        flashType = payload.eventType === "INSERT" ? "UPDATE" : payload.eventType;
+        render();
+      })
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") { setStatus(true, "ราคา/สต็อกอัปเดตสด"); loadInitial(); }
+        else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) setStatus(false, "หลุดการเชื่อมต่อ กำลังลองใหม่...");
+      });
+  }
+
+  searchEl.addEventListener("input", e => { query = e.target.value; render(); });
+
+  loadInitial();
+  subscribe();
+</script>
+</body>
+</html>
